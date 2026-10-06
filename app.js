@@ -49,33 +49,8 @@ function formatDuration(ms){
 }
 function render(){
   document.body.classList.toggle("light",state.theme==="light");
-  renderDailyThought();
   renderHome(); renderStats(); renderSettings();
 }
-const DAILY_THOUGHTS=[
-  ["Delay, don't deny.","When a cigarette feels automatic, wait 5 minutes before deciding. A delay is already a win."],
-  ["Protect your longest gap.","When you notice you've gone longer than usual, try to beat that interval by another 5–10 minutes."],
-  ["Break the loop.","If you normally smoke after food, change what happens immediately afterward: walk, brush your teeth, or make a drink."],
-  ["Don't compensate.","A lighter day doesn't need to be repaid tomorrow. Keep moving forward from where you are."],
-  ["Name the trigger.","Before lighting up, ask: “What am I actually responding to?” Stress, boredom and habit can feel like the same craving."],
-  ["Add a little friction.","Keep cigarettes somewhere less convenient. Even a few extra steps can interrupt an automatic decision."],
-  ["One cigarette isn't the day.","If you smoke one you didn't plan to, log it and continue. The next decision still counts."],
-  ["Cravings peak and pass.","You don't have to make a craving disappear. Give it time to rise, change and come back down."],
-  ["Fewer is progress.","You don't need a perfect day for reduction to work. Every cigarette you don't smoke is one less."],
-  ["Beat yesterday by a little.","Try extending just one interval today. Ten extra minutes is useful practice."],
-  ["Change the scenery.","If a particular place always leads to smoking, spend the first few craving minutes somewhere else."],
-  ["Make the next one a decision.","Before smoking, pause long enough to choose rather than letting the routine choose for you."],
-  ["Track the wins you don't see.","A resisted craving and a longer gap are progress even if the cigarette count looks similar."],
-  ["Don't chase a perfect streak.","The goal is to build more control, not to punish yourself for slipping."],
-  ["Use the app before the cigarette.","If you can, hit the craving timer first. Give yourself five minutes between the urge and the decision."]
-];
-function renderDailyThought(){
-  const dayNumber=Math.floor((new Date().setHours(0,0,0,0)-new Date("2026-01-01T00:00:00"))/86400000);
-  const [title,tip]=DAILY_THOUGHTS[((dayNumber%DAILY_THOUGHTS.length)+DAILY_THOUGHTS.length)%DAILY_THOUGHTS.length];
-  $("#dailyThought").textContent=title;
-  $("#dailyTip").textContent=tip;
-}
-
 function renderHome(){
   const logs=dayLogs(), target=targetFor();
   $("#todayCount").textContent=logs.length;
