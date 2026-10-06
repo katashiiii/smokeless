@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111318">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SmokeLess">
+  <meta name="description" content="A private, offline-first smoking reduction tracker.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="style.css">
+  <title>SmokeLess</title>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">SMOKELESS</div>
+        <h1>Today</h1>
+      </div>
+      <button id="themeBtn" class="icon-btn" aria-label="Toggle theme">☾</button>
+    </header>
+
+    <section class="hero card">
+      <div class="hero-top">
+        <div>
+          <span class="muted">Cigarettes today</span>
+          <div class="big-number"><span id="todayCount">0</span><small id="todayTarget">/ 0</small></div>
+        </div>
+        <div id="statusPill" class="pill">Loading…</div>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="hero-meta">
+        <span id="lastSmoke">No cigarettes logged today</span>
+        <span id="intervalText">—</span>
+      </div>
+      <button id="smokedBtn" class="primary-btn smoke-btn">🚬 I smoked</button>
+    </section>
+
+    <section class="grid-2">
+      <div class="card stat">
+        <span class="muted">Current streak</span>
+        <strong id="streak">0 days</strong>
+        <small>under daily target</small>
+      </div>
+      <div class="card stat">
+        <span class="muted">Longest gap</span>
+        <strong id="longestGap">—</strong>
+        <small>between cigarettes</small>
+      </div>
+    </section>
+
+    <section class="card craving-card">
+      <div class="section-title">
+        <div>
+          <h2>Craving?</h2>
+          <p class="muted">You don't have to decide forever. Delay it first.</p>
+        </div>
+        <span id="cravingBadge" class="pill subtle">5 min</span>
+      </div>
+      <div id="cravingIdle">
+        <button id="cravingBtn" class="secondary-btn">⏱ Start a 5-minute delay</button>
+      </div>
+      <div id="cravingActive" class="hidden">
+        <div class="timer" id="timer">5:00</div>
+        <p class="center muted">Just get through this minute. The decision can wait.</p>
+        <div class="button-row">
+          <button id="cravingSmoked" class="secondary-btn">I smoked</button>
+          <button id="cravingResisted" class="primary-btn">Craving passed</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div>
+          <h2>Today’s cigarettes</h2>
+          <p class="muted">Tap an entry to see its details.</p>
+        </div>
+      </div>
+      <div id="todayList" class="log-list"></div>
+    </section>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-tab="home">⌂<span>Home</span></button>
+      <button class="nav-btn" data-tab="stats">◒<span>Stats</span></button>
+      <button class="nav-btn" data-tab="settings">⚙<span>Settings</span></button>
+    </nav>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-sheet card">
+      <div class="modal-head">
+        <h2>Log cigarette</h2>
+        <button id="closeModal" class="icon-btn">×</button>
+      </div>
+      <label>What triggered it?
+        <select id="trigger">
+          <option value="">Prefer not to say</option>
+          <option>Stress</option>
+          <option>Boredom</option>
+          <option>After food</option>
+          <option>Alcohol</option>
+          <option>Gaming</option>
+          <option>Social</option>
+          <option>Craving</option>
+          <option>Habit</option>
+          <option>Other</option>
+        </select>
+      </label>
+      <label>Craving intensity
+        <input id="intensity" type="range" min="1" max="5" value="3">
+        <div class="range-labels"><span>1</span><span id="intensityValue">3</span><span>5</span></div>
+      </label>
+      <label>Note <span class="muted">(optional)</span>
+        <textarea id="note" rows="3" placeholder="Anything worth remembering?"></textarea>
+      </label>
+      <button id="saveSmoke" class="primary-btn">Save cigarette</button>
+    </div>
+  </div>
+
+  <section id="statsTab" class="tab-panel hidden">
+    <div class="app-shell">
+      <header class="topbar">
+        <div><div class="eyebrow">SMOKELESS</div><h1>Stats</h1></div>
+        <button class="icon-btn back-home">⌂</button>
+      </header>
+      <section class="card">
+        <div class="section-title"><div><h2>Last 14 days</h2><p class="muted">Your trend, not a score.</p></div></div>
+        <div id="chart" class="bar-chart"></div>
+      </section>
+      <section class="grid-2">
+        <div class="card stat"><span class="muted">Total logged</span><strong id="totalLogged">0</strong><small>all time</small></div>
+        <div class="card stat"><span class="muted">Avg. / day</span><strong id="avgDaily">0</strong><small>since first log</small></div>
+        <div class="card stat"><span class="muted">Cravings resisted</span><strong id="resisted">0</strong><small>delay completed</small></div>
+        <div class="card stat"><span class="muted">Avoided estimate</span><strong id="avoided">0</strong><small>vs. starting baseline</small></div>
+      </section>
+      <section class="card">
+        <div class="section-title"><div><h2>Common triggers</h2></div></div>
+        <div id="triggers"></div>
+      </section>
+      <section class="card">
+        <div class="section-title"><div><h2>Recent history</h2></div></div>
+        <div id="history"></div>
+      </section>
+    </div>
+  </section>
+
+  <section id="settingsTab" class="tab-panel hidden">
+    <div class="app-shell">
+      <header class="topbar">
+        <div><div class="eyebrow">SMOKELESS</div><h1>Settings</h1></div>
+        <button class="icon-btn back-home">⌂</button>
+      </header>
+      <section class="card form-card">
+        <h2>Reduction plan</h2>
+        <p class="muted">Set a starting baseline and choose how quickly you want to reduce.</p>
+        <label>Starting cigarettes per day
+          <input id="baseline" type="number" min="1" max="100" inputmode="numeric">
+        </label>
+        <label>Daily reduction
+          <select id="reduction">
+            <option value="1">1 cigarette per day</option>
+            <option value="2">2 cigarettes per day</option>
+            <option value="0.5">½ cigarette per day</option>
+          </select>
+        </label>
+        <label>Quit date <span class="muted">(optional)</span>
+          <input id="quitDate" type="date">
+        </label>
+        <label>Price per cigarette <span class="muted">(optional)</span>
+          <input id="price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="₹">
+        </label>
+        <button id="saveSettings" class="primary-btn">Save plan</button>
+      </section>
+      <section class="card">
+        <h2>Data</h2>
+        <p class="muted">Everything is stored on this device. Export a backup before clearing browser data.</p>
+        <div class="button-stack">
+          <button id="exportJson" class="secondary-btn">Export JSON backup</button>
+          <button id="exportCsv" class="secondary-btn">Export CSV</button>
+          <label class="file-btn secondary-btn">Import JSON backup<input id="importJson" type="file" accept=".json,application/json" hidden></label>
+          <button id="clearData" class="danger-btn">Clear all data</button>
+        </div>
+      </section>
+      <section class="card small-print">
+        <h2>About</h2>
+        <p>This app is a self-tracking aid, not medical care. If you want medication or nicotine-replacement advice, a doctor or pharmacist can help you choose an appropriate approach.</p>
+      </section>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
