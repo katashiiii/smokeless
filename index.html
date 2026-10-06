@@ -73,6 +73,12 @@
       </div>
     </section>
 
+    <section class="card thought-card">
+      <div class="thought-kicker">THOUGHT FOR TODAY</div>
+      <h2 id="dailyThought">Loading…</h2>
+      <p id="dailyTip" class="muted"></p>
+    </section>
+
     <section class="card">
       <div class="section-title">
         <div>
@@ -146,6 +152,11 @@
         <div class="section-title"><div><h2>Recent history</h2></div></div>
         <div id="history"></div>
       </section>
+      <nav class="bottom-nav">
+        <button class="nav-btn" data-tab="home">⌂<span>Home</span></button>
+        <button class="nav-btn active" data-tab="stats">◒<span>Stats</span></button>
+        <button class="nav-btn" data-tab="settings">⚙<span>Settings</span></button>
+      </nav>
     </div>
   </section>
 
@@ -171,8 +182,11 @@
         <label>Quit date <span class="muted">(optional)</span>
           <input id="quitDate" type="date">
         </label>
-        <label>Price per cigarette <span class="muted">(optional)</span>
-          <input id="price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="₹">
+        <label>₹13 cigarette price
+          <input id="price13" type="number" min="0" step="0.01" inputmode="decimal" placeholder="13">
+        </label>
+        <label>₹25 cigarette price
+          <input id="price25" type="number" min="0" step="0.01" inputmode="decimal" placeholder="25">
         </label>
         <button id="saveSettings" class="primary-btn">Save plan</button>
       </section>
@@ -186,10 +200,19 @@
           <button id="clearData" class="danger-btn">Clear all data</button>
         </div>
       </section>
+      <section class="card">
+        <h2>Cost summary</h2>
+        <div id="costSummary"></div>
+      </section>
       <section class="card small-print">
         <h2>About</h2>
         <p>This app is a self-tracking aid, not medical care. If you want medication or nicotine-replacement advice, a doctor or pharmacist can help you choose an appropriate approach.</p>
       </section>
+      <nav class="bottom-nav">
+        <button class="nav-btn" data-tab="home">⌂<span>Home</span></button>
+        <button class="nav-btn" data-tab="stats">◒<span>Stats</span></button>
+        <button class="nav-btn active" data-tab="settings">⚙<span>Settings</span></button>
+      </nav>
     </div>
   </section>
 

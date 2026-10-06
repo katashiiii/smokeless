@@ -3,16 +3,25 @@ const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
 
 const defaultState={
-  settings:{baseline:10,reduction:1,quitDate:"",price:0},
+  settings:{baseline:10,reduction:1,quitDate:"",prices:[13,25]},
   logs:[], cravings:{started:0,resisted:0,history:[]}, theme:"dark"
 };
 let state=load();
 let timerId=null;
+let gapTimerId=null;
+let selectedCost=13;
 
 function load(){
   try{
     const x=JSON.parse(localStorage.getItem(KEY));
-    return x?{...defaultState,...x,settings:{...defaultState.settings,...x.settings},cravings:{...defaultState.cravings,...x.cravings}}:structuredClone(defaultState);
+    if(!x)return structuredClone(defaultState);
+    const migrated={...defaultState,...x,settings:{...defaultState.settings,...x.settings},cravings:{...defaultState.cravings,...x.cravings}};
+    if(!Array.isArray(migrated.settings.prices)){
+      const old=Number(migrated.settings.price);
+      migrated.settings.prices=Number.isFinite(old)&&old>0?[13,old]:[13,25];
+    }
+    migrated.logs=(migrated.logs||[]).map(l=>({...l,cost:Number(l.cost)||13}));
+    return migrated;
   }catch{return structuredClone(defaultState)}
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
@@ -40,8 +49,33 @@ function formatDuration(ms){
 }
 function render(){
   document.body.classList.toggle("light",state.theme==="light");
+  renderDailyThought();
   renderHome(); renderStats(); renderSettings();
 }
+const DAILY_THOUGHTS=[
+  ["Delay, don't deny.","When a cigarette feels automatic, wait 5 minutes before deciding. A delay is already a win."],
+  ["Protect your longest gap.","When you notice you've gone longer than usual, try to beat that interval by another 5–10 minutes."],
+  ["Break the loop.","If you normally smoke after food, change what happens immediately afterward: walk, brush your teeth, or make a drink."],
+  ["Don't compensate.","A lighter day doesn't need to be repaid tomorrow. Keep moving forward from where you are."],
+  ["Name the trigger.","Before lighting up, ask: “What am I actually responding to?” Stress, boredom and habit can feel like the same craving."],
+  ["Add a little friction.","Keep cigarettes somewhere less convenient. Even a few extra steps can interrupt an automatic decision."],
+  ["One cigarette isn't the day.","If you smoke one you didn't plan to, log it and continue. The next decision still counts."],
+  ["Cravings peak and pass.","You don't have to make a craving disappear. Give it time to rise, change and come back down."],
+  ["Fewer is progress.","You don't need a perfect day for reduction to work. Every cigarette you don't smoke is one less."],
+  ["Beat yesterday by a little.","Try extending just one interval today. Ten extra minutes is useful practice."],
+  ["Change the scenery.","If a particular place always leads to smoking, spend the first few craving minutes somewhere else."],
+  ["Make the next one a decision.","Before smoking, pause long enough to choose rather than letting the routine choose for you."],
+  ["Track the wins you don't see.","A resisted craving and a longer gap are progress even if the cigarette count looks similar."],
+  ["Don't chase a perfect streak.","The goal is to build more control, not to punish yourself for slipping."],
+  ["Use the app before the cigarette.","If you can, hit the craving timer first. Give yourself five minutes between the urge and the decision."]
+];
+function renderDailyThought(){
+  const dayNumber=Math.floor((new Date().setHours(0,0,0,0)-new Date("2026-01-01T00:00:00"))/86400000);
+  const [title,tip]=DAILY_THOUGHTS[((dayNumber%DAILY_THOUGHTS.length)+DAILY_THOUGHTS.length)%DAILY_THOUGHTS.length];
+  $("#dailyThought").textContent=title;
+  $("#dailyTip").textContent=tip;
+}
+
 function renderHome(){
   const logs=dayLogs(), target=targetFor();
   $("#todayCount").textContent=logs.length;
@@ -55,28 +89,50 @@ function renderHome(){
   if(logs.length){
     const last=logs.at(-1);
     $("#lastSmoke").textContent=`Last: ${fmtTime(last.ts)}`;
-    if(logs.length>1) $("#intervalText").textContent=`Gap: ${formatDuration(logs.at(-1).ts-logs.at(-2).ts)}`;
-    else $("#intervalText").textContent="First today";
+    if(logs.length>1) $("#intervalText").textContent=`Previous gap: ${formatDuration(logs.at(-1).ts-logs.at(-2).ts)}`;
+    else $("#intervalText").textContent="Gap: 0m";
   }else{$("#lastSmoke").textContent="No cigarettes logged today";$("#intervalText").textContent="—"}
+  startGapTimer();
   $("#streak").textContent=streak()+" days";
   $("#longestGap").textContent=formatDuration(longestGap());
   const list=$("#todayList"); list.innerHTML="";
   if(!logs.length){list.innerHTML='<div class="muted" style="font-size:13px;padding:8px 0">Nothing logged yet. That’s the point — keep it going.</div>'}
   logs.slice().reverse().forEach((x,i)=>{
     const row=document.createElement("div");row.className="log-row";
-    row.innerHTML=`<div class="log-left"><span class="dot"></span><div><b>${fmtTime(x.ts)}</b><div class="muted">${x.trigger||"No trigger recorded"}</div></div></div><div class="log-detail">Craving ${x.intensity||"—"}/5</div>`;
-    row.onclick=()=>alert(`${new Date(x.ts).toLocaleString()}\nTrigger: ${x.trigger||"—"}\nCraving: ${x.intensity||"—"}/5${x.note?`\nNote: ${x.note}`:""}`);
+    row.innerHTML=`<div class="log-left"><span class="dot"></span><div><b>${fmtTime(x.ts)}</b><div class="muted">${x.trigger||"No trigger recorded"}</div></div></div><div class="log-detail">₹${x.cost||"—"} · Craving ${x.intensity||"—"}/5</div>`;
+    row.onclick=()=>alert(`${new Date(x.ts).toLocaleString()}
+Trigger: ${x.trigger||"—"}
+Cost: ₹${x.cost||"—"}
+Craving: ${x.intensity||"—"}/5${x.note?`
+Note: ${x.note}`:""}`);
     list.appendChild(row);
   });
 }
 function streak(){
-  let n=0,d=new Date(); d.setHours(12,0,0,0);
+  // A streak requires a day to have actually been tracked.
+  // Never count untracked/empty days as successful days.
+  let n=0, d=new Date(); d.setHours(12,0,0,0);
   while(true){
-    const k=dateKey(d), count=dayLogs(k).length, target=targetFor(k);
-    if(count<=target){n++;d.setDate(d.getDate()-1)}else break;
-    if(n>10000)break;
+    const k=dateKey(d), logs=dayLogs(k);
+    if(!logs.length) break;
+    if(logs.length<=targetFor(k)){ n++; d.setDate(d.getDate()-1); }
+    else break;
   }
   return n;
+}
+function startGapTimer(){
+  clearInterval(gapTimerId);
+  const all=state.logs.slice().sort((a,b)=>a.ts-b.ts);
+  const last=all.at(-1);
+  const el=$("#longestGap");
+  if(!last){el.textContent="—";return;}
+  const tick=()=>{
+    const live=Date.now()-last.ts;
+    const historical=longestGap();
+    el.textContent=formatDuration(Math.max(live,historical));
+  };
+  tick();
+  gapTimerId=setInterval(tick,1000);
 }
 function longestGap(){
   const a=state.logs.slice().sort((x,y)=>x.ts-y.ts); let max=0;
@@ -93,6 +149,10 @@ function renderStats(){
   }else $("#avgDaily").textContent="0";
   $("#resisted").textContent=state.cravings.resisted||0;
   $("#avoided").textContent=estimateAvoided();
+  const spent=state.logs.reduce((sum,x)=>sum+(Number(x.cost)||13),0);
+  const c13=state.logs.filter(x=>Number(x.cost)===13).length;
+  const c25=state.logs.filter(x=>Number(x.cost)===25).length;
+  $("#costSummary").innerHTML=`<div class="history-row"><span>Total spent</span><b>₹${spent.toFixed(2)}</b></div><div class="history-row"><span>₹13 cigarettes</span><span>${c13}</span></div><div class="history-row"><span>₹25 cigarettes</span><span>${c25}</span></div>`;
   const counts={};state.logs.forEach(x=>{if(x.trigger)counts[x.trigger]=(counts[x.trigger]||0)+1});
   const arr=Object.entries(counts).sort((a,b)=>b[1]-a[1]), total=Math.max(1,state.logs.length);
   $("#triggers").innerHTML=arr.length?arr.slice(0,8).map(([k,v])=>`<div class="trigger-row"><span>${k}</span><div class="trigger-track"><div style="width:${v/Math.max(...arr.map(a=>a[1]))*100}%"></div></div><b>${v}</b></div>`).join(""):'<span class="muted">No trigger data yet.</span>';
@@ -111,12 +171,19 @@ function renderSettings(){
   $("#baseline").value=state.settings.baseline;
   $("#reduction").value=state.settings.reduction;
   $("#quitDate").value=state.settings.quitDate||"";
-  $("#price").value=state.settings.price||"";
+  $("#price13").value=(state.settings.prices||[13,25])[0] ?? 13;
+  $("#price25").value=(state.settings.prices||[13,25])[1] ?? 25;
 }
-function openModal(){ $("#modal").classList.remove("hidden"); $("#trigger").value="";$("#intensity").value=3;$("#intensityValue").textContent=3;$("#note").value=""; }
+function openModal(){
+  $("#modal").classList.remove("hidden"); $("#trigger").value="";$("#intensity").value=3;
+  $("#intensityValue").textContent=3;$("#note").value="";
+  const prices=state.settings.prices||[13,25];
+  selectedCost=prices[0]||13;
+  updateCostButtons();
+}
 function closeModal(){$("#modal").classList.add("hidden")}
 function addSmoke(extra={}){
-  state.logs.push({ts:Date.now(),trigger:extra.trigger||"",intensity:Number(extra.intensity||3),note:extra.note||""});
+  state.logs.push({ts:Date.now(),trigger:extra.trigger||"",intensity:Number(extra.intensity||3),note:extra.note||"",cost:Number(extra.cost||selectedCost)||13});
   state.logs.sort((a,b)=>a.ts-b.ts);save();render();closeModal();
 }
 function startCraving(){
@@ -139,14 +206,22 @@ function exportFile(name,content,type){
 function exportJson(){exportFile("smokeless-backup.json",JSON.stringify(state,null,2),"application/json")}
 function csvEscape(v){return `"${String(v??"").replaceAll('"','""')}"`}
 function exportCsv(){
-  const rows=[["timestamp","date","time","trigger","craving_intensity","note"]];
-  state.logs.forEach(x=>rows.push([new Date(x.ts).toISOString(),dateKey(new Date(x.ts)),fmtTime(x.ts),x.trigger,x.intensity,x.note]));
+  const rows=[["timestamp","date","time","cost","trigger","craving_intensity","note"]];
+  state.logs.forEach(x=>rows.push([new Date(x.ts).toISOString(),dateKey(new Date(x.ts)),fmtTime(x.ts),x.cost,x.trigger,x.intensity,x.note]));
   exportFile("smokeless-cigarettes.csv",rows.map(r=>r.map(csvEscape).join(",")).join("\n"),"text/csv")
 }
 $("#smokedBtn").onclick=openModal;
 $("#closeModal").onclick=closeModal;
 $(".modal-backdrop").onclick=closeModal;
-$("#saveSmoke").onclick=()=>addSmoke({trigger:$("#trigger").value,intensity:$("#intensity").value,note:$("#note").value.trim()});
+$("#saveSmoke").onclick=()=>addSmoke({trigger:$("#trigger").value,intensity:$("#intensity").value,note:$("#note").value.trim(),cost:selectedCost});
+$("#cost13").onclick=()=>{selectedCost=Number((state.settings.prices||[13,25])[0]||13);updateCostButtons()};
+$("#cost25").onclick=()=>{selectedCost=Number((state.settings.prices||[13,25])[1]||25);updateCostButtons()};
+function updateCostButtons(){
+  const [a,b]=state.settings.prices||[13,25];
+  $("#cost13").textContent=`₹${a}`; $("#cost25").textContent=`₹${b}`;
+  $("#cost13").style.borderColor=selectedCost===a?"var(--accent)":"";
+  $("#cost25").style.borderColor=selectedCost===b?"var(--accent)":"";
+}
 $("#intensity").oninput=e=>$("#intensityValue").textContent=e.target.value;
 $("#cravingBtn").onclick=startCraving;
 $("#cravingSmoked").onclick=()=>finishCraving(false);
@@ -156,7 +231,10 @@ $("#saveSettings").onclick=()=>{
   state.settings.baseline=Math.max(1,Number($("#baseline").value)||10);
   state.settings.reduction=Number($("#reduction").value)||1;
   state.settings.quitDate=$("#quitDate").value;
-  state.settings.price=Math.max(0,Number($("#price").value)||0);
+  state.settings.prices=[
+    Math.max(0,Number($("#price13").value)||13),
+    Math.max(0,Number($("#price25").value)||25)
+  ];
   save();render();alert("Plan saved.");
 };
 $("#exportJson").onclick=exportJson;$("#exportCsv").onclick=exportCsv;
